@@ -164,6 +164,7 @@ func Provider() *schema.Provider {
 			"postgresql_physical_replication_slot": resourcePostgreSQLPhysicalReplicationSlot(),
 			"postgresql_schema":                    resourcePostgreSQLSchema(),
 			"postgresql_role":                      resourcePostgreSQLRole(),
+			"postgresql_alter_role":                resourcePostgreSQLAlterRole(),
 		},
 
 		ConfigureFunc: providerConfigure,
