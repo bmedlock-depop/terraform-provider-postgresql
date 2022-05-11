@@ -11,15 +11,17 @@ import (
 )
 
 const (
+	// roleName       = "role_name"
+	// parameterKey   = "configuration_parameter"
+	// parameterValue = "parameter_value"
+
 	// This returns the role membership for role, grant_role
 	getAlterRoleQuery = `
 SELECT rolname AS ALTER_ROLE, rolconfig AS ROLE_PARAMS
 FROM pg_catalog.pg_roles pr
-WHERE rolname = $1 AND array_to_string(rolconfig, ',') LIKE $2 = $3
+WHERE rolname = $1
 `
 )
-
-//select rolname,rolconfig from pg_roles where rolname in ('[role_name]');
 
 func resourcePostgreSQLAlterRole() *schema.Resource {
 	return &schema.Resource{
@@ -28,19 +30,19 @@ func resourcePostgreSQLAlterRole() *schema.Resource {
 		Delete: PGResourceFunc(resourcePostgreSQLAlterRoleDelete),
 
 		Schema: map[string]*schema.Schema{
-			"alter_role": {
+			"role_name": {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "The name of the role to alter the attributes of",
 			},
-			"alter_parameter_key": {
+			"parameter_key": {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "The name of the parameter to alter on the role",
 			},
-			"alter_parameter_value": {
+			"parameter_value": {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
@@ -119,17 +121,27 @@ func resourcePostgreSQLAlterRoleDelete(db *DBConnection, d *schema.ResourceData)
 }
 
 func readAlterRole(db QueryAble, d *schema.ResourceData) error {
-	var alterRole, alterParameter, alterParameterValue string
+	// consts are not getting assigned the value correctly here
+	// they are just set to the string as in the const
+
+	var (
+		roleName       string
+		roleParameters map[string]interface{}
+	)
+	//log.Println("Printing out the value of the input", roleName, parameterKey, parameterValue)
+	// all vars at this point do not have any value
 
 	alterRoleID := d.Id()
 
 	values := []interface{}{
-		&alterRole,
-		&alterParameter,
-		&alterParameterValue,
+		&roleName,
+		&roleParameters,
 	}
+	//fmt.Printf("THIS WILL PRINT STUFF %+v\n", d.Get(roleName))
 
-	err := db.QueryRow(getAlterRoleQuery, d.Get("alter_role"), d.Get("alter_parameter"), d.Get("alter_parameter_value")).Scan(values...)
+	//stdout="THIS WILL PRINT STUFF map[parameter_key: parameter_value:ALL role_name:rds_pgaudit]"
+
+	err := db.QueryRow(getAlterRoleQuery, d.Get("role_name")).Scan(values...)
 	switch {
 	case err == sql.ErrNoRows:
 		log.Printf("[WARN] PostgreSQL alter role (%q) not found", alterRoleID)
@@ -139,9 +151,9 @@ func readAlterRole(db QueryAble, d *schema.ResourceData) error {
 		return fmt.Errorf("error reading alter role: %w", err)
 	}
 
-	d.Set("alter_role", alterRole)
-	d.Set("alter_paramter", alterParameter)
-	d.Set("alter_parameter_value", alterParameterValue)
+	d.Set("role_name", roleName)
+	// d.Set("paramter_key", parameterKey)
+	// d.Set("parameter_value", parameterValue)
 
 	d.SetId(generateAlterRoleID(d))
 
@@ -149,14 +161,14 @@ func readAlterRole(db QueryAble, d *schema.ResourceData) error {
 }
 
 func createAlterRoleQuery(d *schema.ResourceData) string {
-	alterRole, _ := d.Get("alter_role").(string)
-	alterParameter, _ := d.Get("alter_role_parameter").(string)
-	alterParameterValue, _ := d.Get("alter_role_parameter_value").(string)
+	alterRole, _ := d.Get("role_name").(string)
+	alterParameterKey, _ := d.Get("parameter_key").(string)
+	alterParameterValue, _ := d.Get("parameter_value").(string)
 
 	query := fmt.Sprintf(
 		"ALTER ROLE %s SET %s TO %s",
 		pq.QuoteIdentifier(alterRole),
-		pq.QuoteIdentifier(alterParameter),
+		pq.QuoteIdentifier(alterParameterKey),
 		pq.QuoteIdentifier(alterParameterValue),
 	)
 
@@ -164,32 +176,34 @@ func createAlterRoleQuery(d *schema.ResourceData) string {
 }
 
 func createResetAlterRoleQuery(d *schema.ResourceData) string {
-	alterRole, _ := d.Get("alter_role").(string)
-	alterParameter, _ := d.Get("alter_role_parameter").(string)
+	alterRole, _ := d.Get("role_name").(string)
+	alterParameterKey, _ := d.Get("parameter_key").(string)
 
 	return fmt.Sprintf(
 		"ALTER ROLE %s RESET %s",
 		pq.QuoteIdentifier(alterRole),
-		pq.QuoteIdentifier(alterParameter),
+		pq.QuoteIdentifier(alterParameterKey),
 	)
 }
 
 func alterRole(txn *sql.Tx, d *schema.ResourceData) error {
 	query := createAlterRoleQuery(d)
+	log.Println(query)
 	if _, err := txn.Exec(query); err != nil {
-		return fmt.Errorf("could not execute alter query: %w", err)
+		return fmt.Errorf("could not execute alter query testing message: %w", err)
 	}
 	return nil
 }
 
 func resetAlterRole(txn *sql.Tx, d *schema.ResourceData) error {
 	query := createResetAlterRoleQuery(d)
+	fmt.Println(query)
 	if _, err := txn.Exec(query); err != nil {
-		return fmt.Errorf("could not execute alter reset query: %w", err)
+		return fmt.Errorf("could not execute alter reset query (%s): %w", query, err)
 	}
 	return nil
 }
 
 func generateAlterRoleID(d *schema.ResourceData) string {
-	return strings.Join([]string{d.Get("alter_role").(string), d.Get("alter_parameter").(string), d.Get("alter_parameter_value").(string)}, "_")
+	return strings.Join([]string{d.Get("role_name").(string), d.Get("parameter_key").(string), d.Get("parameter_value").(string)}, "_")
 }
