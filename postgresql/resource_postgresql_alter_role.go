@@ -12,14 +12,9 @@ import (
 )
 
 const (
-	// roleName       = "role_name"
-	// parameterKey   = "configuration_parameter"
-	// parameterValue = "parameter_value"
-
-	// This returns the role membership for role, grant_role
 	getAlterRoleQuery = `
-SELECT rolname AS ALTER_ROLE, to_json(rolconfig) AS ROLE_PARAMS
-FROM pg_catalog.pg_roles pr
+SELECT rolname as ALTER_ROLE, array_to_string(rolconfig, ',') as ROLE_PARAMS
+FROM pg_catalog.pg_roles
 WHERE rolname = $1
 `
 )
@@ -124,7 +119,7 @@ func resourcePostgreSQLAlterRoleDelete(db *DBConnection, d *schema.ResourceData)
 func readAlterRole(db QueryAble, d *schema.ResourceData) error {
 	var (
 		roleName       string
-		roleParameters interface{}
+		roleParameters *string
 	)
 	//log.Println("Printing out the value of the input", roleName, parameterKey, parameterValue)
 
@@ -134,7 +129,7 @@ func readAlterRole(db QueryAble, d *schema.ResourceData) error {
 		&roleName,
 		&roleParameters,
 	}
-
+	//pgaudit.log=ALL
 	err := db.QueryRow(getAlterRoleQuery, d.Get("role_name")).Scan(values...)
 	switch {
 	case err == sql.ErrNoRows:
@@ -144,13 +139,19 @@ func readAlterRole(db QueryAble, d *schema.ResourceData) error {
 	case err != nil:
 		return fmt.Errorf("error reading alter role: %w", err)
 	}
-	fmt.Printf("THIS WILL PRINT STUFF %s\n", roleParameters)
-	// roleParameterMap := make(map[string]string)
-	// json.Unmarshal( &roleParmeterMap)
-	d.Set("role_name", roleName)
-	// d.Set("paramter_key", parameterKey)
-	// d.Set("parameter_value", parameterValue)
+	// returning two params, figure out which is the right one and continue to split/set
 
+	if roleParameters
+
+	parameters := strings.Split(roleParameters, "=")
+
+	if len(parameters) == 2 {
+		d.Set("parameter_key", strings.Split(roleParameters, "=")[0])
+		d.Set("parameter_value", strings.Split(roleParameters, "=")[1])
+	}
+
+	//fmt.Printf("THIS WILL PRINT STUFF %s\n", roleParameters)
+	d.Set("role_name", roleName)
 	d.SetId(generateAlterRoleID(d))
 
 	return nil
