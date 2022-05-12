@@ -2,6 +2,7 @@ package postgresql
 
 import (
 	"database/sql"
+	// "encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -17,7 +18,7 @@ const (
 
 	// This returns the role membership for role, grant_role
 	getAlterRoleQuery = `
-SELECT rolname AS ALTER_ROLE, rolconfig AS ROLE_PARAMS
+SELECT rolname AS ALTER_ROLE, to_json(rolconfig) AS ROLE_PARAMS
 FROM pg_catalog.pg_roles pr
 WHERE rolname = $1
 `
@@ -121,15 +122,11 @@ func resourcePostgreSQLAlterRoleDelete(db *DBConnection, d *schema.ResourceData)
 }
 
 func readAlterRole(db QueryAble, d *schema.ResourceData) error {
-	// consts are not getting assigned the value correctly here
-	// they are just set to the string as in the const
-
 	var (
 		roleName       string
-		roleParameters map[string]interface{}
+		roleParameters interface{}
 	)
 	//log.Println("Printing out the value of the input", roleName, parameterKey, parameterValue)
-	// all vars at this point do not have any value
 
 	alterRoleID := d.Id()
 
@@ -137,9 +134,6 @@ func readAlterRole(db QueryAble, d *schema.ResourceData) error {
 		&roleName,
 		&roleParameters,
 	}
-	//fmt.Printf("THIS WILL PRINT STUFF %+v\n", d.Get(roleName))
-
-	//stdout="THIS WILL PRINT STUFF map[parameter_key: parameter_value:ALL role_name:rds_pgaudit]"
 
 	err := db.QueryRow(getAlterRoleQuery, d.Get("role_name")).Scan(values...)
 	switch {
@@ -150,7 +144,9 @@ func readAlterRole(db QueryAble, d *schema.ResourceData) error {
 	case err != nil:
 		return fmt.Errorf("error reading alter role: %w", err)
 	}
-
+	fmt.Printf("THIS WILL PRINT STUFF %s\n", roleParameters)
+	// roleParameterMap := make(map[string]string)
+	// json.Unmarshal( &roleParmeterMap)
 	d.Set("role_name", roleName)
 	// d.Set("paramter_key", parameterKey)
 	// d.Set("parameter_value", parameterValue)
